@@ -1,0 +1,307 @@
+\documentclass[11pt,oneside]{article}
+\usepackage{amsmath, indentfirst, Sweave, rotating, graphicx, amsmath, float, natbib, setspace, anysize, url, hyperref, fancyhdr, lscape, listings}
+\usepackage[usenames]{color}
+\usepackage[toc,page,title,titletoc]{appendix}
+\usepackage[nomarkers, nolists]{endfloat}
+
+%\bibliographystyle{jss}
+\usepackage[final]{pdfpages}
+\setkeys{Gin}{width=0.65\textwidth}
+\setstretch{1.25} % Set line spacing
+\pagestyle{fancy}
+\setlength{\parindent}{0in}
+
+\usepackage{relsize}
+\DefineVerbatimEnvironment{Sinput}{Verbatim} {xleftmargin=2em, fontsize=\relsize{-1}, baselinestretch=1, formatcom={\color{midnightblue}}} 
+\DefineVerbatimEnvironment{Soutput}{Verbatim}{xleftmargin=2em, fontsize=\relsize{-1}, baselinestretch=1,formatcom={\color{darkred}}} 
+\DefineVerbatimEnvironment{Scode}{Verbatim}{xleftmargin=2em, fontsize=\relsize{-1}, baselinestretch=1,formatcom={\color{darkgreen}}} 
+\fvset{listparameters={\setlength{\topsep}{0pt}}} 
+\renewenvironment{Schunk}{\vspace{\topsep}}{\vspace{\topsep}}
+
+\newcommand\R{{\sf R}}
+\newcommand{\flag}[1]{\footnote{\textcolor{red}{#1}}\marginpar{\textcolor{red}{\framebox[1cm][c]{\Huge !}}} }
+\newcommand{\ml}[1]{\footnote{\textcolor{red}{Mark: #1}}\marginpar{\textcolor{blue}{\framebox[1.5cm][c]{\Large Mark!}}} }
+\newcommand{\bc}[1]{\footnote{\textcolor{red}{Barry: #1}}\marginpar{\textcolor{red}{\framebox[1.5cm][c]{\Large Barry!}}} }
+\newcommand{\comment}[1]{ \textcolor{red}{#1} }
+\newcommand{\dsfrac}[2]{\frac{\displaystyle #1}{\displaystyle #2}}
+\newcommand{\sqkm}{km$^2$}
+\renewcommand\bibname{References}
+\usepackage{color}
+
+% Define some colors
+\definecolor{darkred}{rgb}{0.545,0,0} 
+\definecolor{midnightblue}{rgb}{0.098,0.098,0.439} 
+\definecolor{darkgreen}{rgb}{0.098, 0.439, 0.098}
+\definecolor{orange}{rgb}{1,0.5,0}
+
+% Define some tagas for the todo list
+\newcommand{\done}[1]{\textcolor{darkgreen}{\bf [DONE]} #1\\}
+\newcommand{\inprogress}[1]{\textcolor{blue}{\bf [IN PROGRESS]} #1\\} 
+\newcommand{\onhold}[1]{\textcolor{orange}{\bf [ON HOLD]} #1\\}
+\newcommand{\todo}[1]{\textcolor{red}{\bf [TODO]} #1\\}
+
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Title page
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newlength{\centeroffset}
+\setlength{\centeroffset}{-0.5\oddsidemargin}
+\addtolength{\centeroffset}{0.5\evensidemargin}
+\addtolength{\textwidth}{-\centeroffset}
+\thispagestyle{empty}
+\vspace*{\stretch{1}}
+\noindent\hspace*{\centeroffset}\makebox[0pt][l]{\begin{minipage}{\textwidth}
+\flushright
+{\Large\bfseries Prediction of MPB outbreaks using Markov process logistic regression}
+\noindent\rule[-1ex]{\textwidth}{5pt}\\[2.5ex]
+{\large\bfseries Predictive model}
+\end{minipage}}
+
+\vspace{\stretch{.2}}
+\noindent\hspace*{\centeroffset}\makebox[0pt][l]{\begin{minipage}{\textwidth}
+\flushright
+{\bfseries 
+Mario Pineda\\} 
+MPK Analytics, Inc.\\
+Suite 300, 8507 - 112 Street \\
+Edmonton, AB T6G 2L7 \\
+Canada\\[1cm]
+
+Version: \Sexpr{file.info("predictive_model.pdf")$mtime}
+\end{minipage}}
+
+\addtolength{\textwidth}{\centeroffset}
+\vspace{\stretch{2}}
+\section*{Abstract}
+This vignette outlines the auto logistic model.
+\section*{About this document}
+This document was created using Sweave, a literate programming tool for \R. To generate this documentation (i.e. weaving) may require a UNIX platform to allow for system calls. Weaving may take a long time. To speed up repeated weaving intermediate data and figures may be cached. For system requirements see end of document. This document (incl. the source) is availiable at \url{https://github.com/mariopineda}.
+\pagebreak
+
+Copyright (c) 2012 Mario Pineda \\
+
+MPK Analytics, Inc.\\
+Suite 300, 8507 - 112 Street \\
+Edmonton, AB T6G 2L7 \\
+Canada \\
+
+Ph: 866.406.0187\\
+Fax: 780.800.6929\\
+Email: \href{mailto:info@mpkanalytics.com}{info@mpkanalytics.com}\\
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. \\
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details. \\
+
+You should have received a copy of the GNU General Public License along with this program.  If not, see \href{http://www.gnu.org/licenses/}{http://www.gnu.org/licenses/}.
+\pagebreak
+
+<<echo=FALSE, results=hide>>=
+options(width=80)
+options(continue=" ")
+start.time <- proc.time()[3]
+@
+
+
+### R code from vignette source 'model_outline2.Rnw'
+
+###################################################
+### code chunk number 1: model_outline2.Rnw:71-74
+###################################################
+options(width=80)
+options(continue=" ")
+start.time <- proc.time()[3]
+
+
+###################################################
+### code chunk number 2: Load stuff
+###################################################
+# Load path object (contains all the necessary file and folder paths)
+load('../path.object/path.Rdata')
+
+# Load the coordinates for the grid points
+load(path$x.Rdata)
+load(path$y.Rdata)
+
+# Load the outline data set
+load(path$outline.Rdata)
+
+
+###################################################
+### code chunk number 3: Define the spatial region
+###################################################
+x1 <- -138
+x2 <- -115
+y1 <- 50
+y2 <- 59
+
+# Subset (i.e. identify) the grid points that fall within the defined spatial region
+mx <- x >= x1 & x <= x2
+my <- y >= y1 & y <= y2
+m <- mx & my
+cat('Number of grid points located within spatial region:', sum(m),'\n')
+
+
+###################################################
+### code chunk number 4: fig-location
+###################################################
+plot(y~x, outline, cex=.1, xlab='Longitude (x)', ylab='Latitude (y)')
+#points(x[m], y[m], cex=0.01, col=rgb(1,0,0,.5))
+abline(v=c(x1, x2), lty='dashed')
+abline(h=c(y1, y2), lty='dashed')
+title('Location of defined spatial region')
+
+# Load the time invariant data sets (i.e. those data sets that do not change over time)
+
+###################################################
+### code chunk number 5: Load elevation data
+###################################################
+load(path$elevation.Rdata)
+require(fields)
+x.sub <- x[m]
+y.sub <- y[m]
+elevation.sub <- elevation[m]
+
+
+###################################################
+### code chunk number 6: Load aspect data
+###################################################
+load(path$aspect.Rdata)
+aspect.sub <- aspect[m]
+
+
+###################################################
+### code chunk number 7: Load pine data
+###################################################
+load(path$pine.Rdata)
+pine.sub <- pine[m]
+pine.sub[is.na(pine.sub)] <- 0
+
+
+###################################################
+### code chunk number 8: model_outline2.Rnw:140-141
+###################################################
+# Loop over all the year and make annual predictions
+auc.vec <- NULL
+year.vec <- NULL
+for (year in seq(1963, 2003)) {
+  cat('Analyzing year ', year) 
+   
+  ###################################################
+  ### code chunk number 9: Load the red top data
+  ###################################################
+  fn <- paste('/Users/mpineda/mpk/data/BC.MPB/Data_from_GIS_analyst/processed/severity.',year,'.Rdata',sep='')
+  if (file.exists(fn)) {
+    cat('...\n')
+    
+    cat('Loading severity data...\n')
+    load(fn)
+    severity.sub <- severity[m]
+    summary(severity.sub)
+    table(severity.sub)
+
+    ###################################################
+    ### code chunk number 10: Convert severity codes to binary values
+    ###################################################
+    outbreak <- as.numeric(!is.na(severity.sub))
+
+    ###################################################
+    ### code chunk number 11: Load the neighbourhood data
+    ###################################################
+    cat('Loading neighbourhood data...\n')
+    load(paste('/Users/mpineda/mpk/data/BC.MPB/Data_from_GIS_analyst/processed/nn1.',year,'.Rdata',sep=''))
+    load(paste('/Users/mpineda/mpk/data/BC.MPB/Data_from_GIS_analyst/processed/nn2.',year,'.Rdata',sep=''))
+    nn1.sub <- nn1[m]
+    nn2.sub <- nn2[m]
+
+    ###################################################
+    ### code chunk number 12: Load the neighbourhood data
+    ###################################################
+    cat('Loading temperature data...\n')
+    fn <- paste('~/mpk/repos/mplr/vignette.OLD/chapter2/cache/global.stats.dd.',year,'.Rdata', sep='')
+    load(fn)
+    dd.sub <- global.statistics$global.mean[m]
+    fn <- paste('~/mpk/repos/mplr/vignette.OLD/chapter2/cache/global.stats.mintemp.',year,'.Rdata', sep='')
+    load(fn)
+    min.sub <- global.statistics$global.mean[m]
+
+    ###################################################
+    ### code chunk number 13: Check lengths
+    ###################################################
+    # Check that all the data sets have the same length
+    length(elevation.sub)
+    length(aspect.sub)
+    length(pine.sub)
+    length(severity.sub)
+    length(outbreak)
+    length(nn1.sub)
+    length(nn2.sub)
+    length(dd.sub)
+    length(min.sub)
+
+    ###################################################
+    ### code chunk number 14: model_outline2.Rnw:197-205
+    ###################################################
+    d <- data.frame(outbreak=outbreak,
+                    elevation=elevation.sub,
+                    aspect=aspect.sub,
+                    pine=pine.sub,
+                    nn1=nn1.sub,
+                    nn2=nn2.sub,
+                    dd=dd.sub,
+                    min=min.sub)
+
+    ###################################################
+    ### code chunk number 15: Logistic regression
+    ###################################################
+    logit <- glm(outbreak~aspect+elevation+pine+nn1+nn2+dd+min, data=d, family=binomial(link="logit"))
+    summary(logit)
+    pred <- predict(logit, type="response")
+
+    ###################################################
+    ### code chunk number 16: Load and subset next years red top data
+    ###################################################
+    # Load next years red top data
+    load(paste('/Users/mpineda/mpk/data/BC.MPB/Data_from_GIS_analyst/processed/severity.',year+1,'.Rdata',sep=''))
+    severity.sub <- severity[m]
+
+    ###################################################
+    ### code chunk number 17: Calculate AUC
+    ###################################################
+    observed <- as.numeric(!is.na(severity.sub))
+    require(verification)
+    auc <- roc.area(observed, pred)$A
+    
+    # Record the results
+    auc.vec <- c(auc.vec, auc)
+    year.vec <- c(year.vec, year)
+    
+  } else cat('data for ',year,' not found. Skipping!')
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Session information
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+\thispagestyle{empty}
+\section*{\label{session_information}Session information}
+<<echo=FALSE>>=
+end.time <- proc.time()[3]
+duration <- round(end.time - start.time)
+@
+
+<<echo=FALSE, results=tex>>=
+toLatex(sessionInfo())
+@
+The \R\ code in this chapter took \Sexpr{duration} seconds to execute, the last time the souce file was modified was on \Sexpr{file.info("todo.Rnw")$mtime} and the last time the PDF file was modified was on \Sexpr{file.info("todo.pdf")$mtime}.
+\vfill
+\centerline{\includegraphics{MPK_Analytics_logo.pdf}}
+\begin{center}
+{\bf MPK Analytics --- Transforming Data Into Insight}\\
+Suite 300, 8507 - 112 Street, Edmonton, AB T6G 2L7, Canada \\
+Ph: 866.406.0187, Fax: 780.800.6929\\
+Email: \href{mailto:info@mpkanalytics.com}{info@mpkanalytics.com}\\
+\end{center}
+\end{document}
